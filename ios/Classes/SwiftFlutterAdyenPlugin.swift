@@ -34,6 +34,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
     var lineItemJson: [String: String]?
     var shopperLocale: String?
     var additionalData:  [String: String]?
+    var bearerToken: String?
 
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -51,6 +52,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         reference = arguments?["reference"] as? String
         returnUrl = arguments?["returnUrl"] as? String
         shopperReference = arguments?["shopperReference"] as? String
+        bearerToken = arguments?["bearerToken"] as? String
         shopperLocale = String((arguments?["locale"] as? String)?.split(separator: "_").last ?? "DE")
         mResult = result
 
@@ -96,6 +98,9 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        if (bearerToken != null && bearerToken != "") {
+            request.addValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
 
         let amountAsInt = Int(amount ?? "0")
         // prepare json data
@@ -157,6 +162,9 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        if (bearerToken != null && bearerToken != "") {
+            request.addValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
         let detailsRequest = DetailsRequest(paymentData: data.paymentData ?? "", details: data.details.encodable)
         do {
             let detailsRequestData = try JSONEncoder().encode(detailsRequest)

@@ -62,6 +62,7 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
                 val env = call.argument<String>("environment")
                 val lineItem = call.argument<Map<String, String>>("lineItem")
                 val shopperReference = call.argument<String>("shopperReference")
+                val bearerToken = call.argument<String>("bearerToken")
 
                 @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
                 val lineItemString = JSONObject(lineItem).toString()
@@ -102,6 +103,7 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
                         putString("lineItem", lineItemString)
                         putString("additionalData", additionalDataString)
                         putString("shopperReference", shopperReference)
+                        putString("bearerToken", bearerToken)
                         commit()
                     }
 
@@ -154,6 +156,7 @@ class AdyenDropinService : DropInService() {
         val countryCode = sharedPref.getString("countryCode", "DE")
         val lineItemString = sharedPref.getString("lineItem", "UNDEFINED_STR")
         val additionalDataString = sharedPref.getString("additionalData", "UNDEFINED_STR")
+        val bearerToken = sharedPref.getString("bearerToken", null)
         val uuid: UUID = UUID.randomUUID()
         val reference: String = uuid.toString()
         val shopperReference = sharedPref.getString("shopperReference", null)
@@ -179,6 +182,9 @@ class AdyenDropinService : DropInService() {
         val requestBody = RequestBody.create(MediaType.parse("application/json"), paymentsRequestJson.toString())
 
         val headers: HashMap<String, String> = HashMap()
+        if (bearerToken != null && bearerToken != "") {
+            headers.put("Authorization", "Bearer $bearerToken")
+        }
         val call = getService(headers, baseUrl ?: "").payments(requestBody)
         call.request().headers()
         return try {
@@ -228,9 +234,12 @@ class AdyenDropinService : DropInService() {
     override fun makeDetailsCall(actionComponentData: JSONObject): CallResult {
         val sharedPref = getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
         val baseUrl = sharedPref.getString("baseUrl", "UNDEFINED_STR")
+        val bearerToken = sharedPref.getString("bearerToken", null)
         val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentData.toString())
         val headers: HashMap<String, String> = HashMap()
-
+        if (bearerToken != null && bearerToken != "") {
+            headers.put("Authorization", "Bearer $bearerToken")
+        }
         val call = getService(headers, baseUrl ?: "").details(requestBody)
         return try {
             val response = call.execute()
