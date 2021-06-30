@@ -62,7 +62,7 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
                 val env = call.argument<String>("environment")
                 val lineItem = call.argument<Map<String, String>>("lineItem")
                 val shopperReference = call.argument<String>("shopperReference")
-                val bearerToken = call.argument<String>("bearerToken")
+                val authToken = call.argument<String>("authToken")
 
                 @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
                 val lineItemString = JSONObject(lineItem).toString()
@@ -92,6 +92,8 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
 
                     val resultIntent = Intent(activity, activity::class.java)
                     resultIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    resultIntent.putExtra("baseUrl", baseUrl)
+                    resultIntent.putExtra("Authorization", authToken)
 
                     val sharedPref = activity.getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
                     with(sharedPref.edit()) {
@@ -103,7 +105,7 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
                         putString("lineItem", lineItemString)
                         putString("additionalData", additionalDataString)
                         putString("shopperReference", shopperReference)
-                        putString("bearerToken", bearerToken)
+                        putString("Authorization", authToken)
                         commit()
                     }
 
@@ -151,12 +153,12 @@ class AdyenDropinService : DropInService() {
     override fun makePaymentsCall(paymentComponentData: JSONObject): CallResult {
         val sharedPref = getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
         val baseUrl = sharedPref.getString("baseUrl", "UNDEFINED_STR")
+        val authorization = sharedPref.getString("Authorization", "UNDEFINED_STR")
         val amount = sharedPref.getString("amount", "UNDEFINED_STR")
         val currency = sharedPref.getString("currency", "UNDEFINED_STR")
         val countryCode = sharedPref.getString("countryCode", "DE")
         val lineItemString = sharedPref.getString("lineItem", "UNDEFINED_STR")
         val additionalDataString = sharedPref.getString("additionalData", "UNDEFINED_STR")
-        val bearerToken = sharedPref.getString("bearerToken", null)
         val uuid: UUID = UUID.randomUUID()
         val reference: String = uuid.toString()
         val shopperReference = sharedPref.getString("shopperReference", null)
@@ -182,9 +184,7 @@ class AdyenDropinService : DropInService() {
         val requestBody = RequestBody.create(MediaType.parse("application/json"), paymentsRequestJson.toString())
 
         val headers: HashMap<String, String> = HashMap()
-        if (bearerToken != null && bearerToken != "") {
-            headers.put("Authorization", "Bearer $bearerToken")
-        }
+        headers["Authorization"] = authorization ?: ""
         val call = getService(headers, baseUrl ?: "").payments(requestBody)
         call.request().headers()
         return try {
@@ -234,12 +234,10 @@ class AdyenDropinService : DropInService() {
     override fun makeDetailsCall(actionComponentData: JSONObject): CallResult {
         val sharedPref = getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
         val baseUrl = sharedPref.getString("baseUrl", "UNDEFINED_STR")
-        val bearerToken = sharedPref.getString("bearerToken", null)
+        val authorization = sharedPref.getString("Authorization", "UNDEFINED_STR")
         val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentData.toString())
         val headers: HashMap<String, String> = HashMap()
-        if (bearerToken != null && bearerToken != "") {
-            headers.put("Authorization", "Bearer $bearerToken")
-        }
+        headers["Authorization"] = authorization ?: ""
         val call = getService(headers, baseUrl ?: "").details(requestBody)
         return try {
             val response = call.execute()
