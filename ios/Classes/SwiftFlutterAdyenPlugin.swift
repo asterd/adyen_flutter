@@ -33,7 +33,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
     var shopperReference: String?
     var lineItemJson: [String: String]?
     var shopperLocale: String?
-    var additionalData:  [String: String]?
+    var additionalData: [String: String]?
 
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -43,6 +43,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         let paymentMethodsResponse = arguments?["paymentMethods"] as? String
         baseURL = arguments?["baseUrl"] as? String
         authToken = arguments?["authToken"] as? String
+        merchantAccount = arguments?["merchantAccount"] as? String
         additionalData = arguments?["additionalData"] as? [String: String]
         clientKey = arguments?["clientKey"] as? String
         currency = arguments?["currency"] as? String
@@ -107,7 +108,20 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
             self.didFail(with: PaymentError(), from: component)
             return
         }
-        let paymentRequest = PaymentRequest(payment: Payment( paymentMethod: paymentMethod, lineItem: lineItem ?? LineItem(id: "", description: ""), currency: currency ?? "", amount: amountAsInt ?? 0, returnUrl: returnUrl ?? "", storePayment: data.storePaymentMethod, shopperReference: shopperReference, countryCode: shopperLocale), additionalData:additionalData ?? [String: String]())
+        let paymentRequest = PaymentRequest(payment: Payment(
+                                        paymentMethod: paymentMethod,
+                                        lineItem: lineItem ?? LineItem(id: "", description: ""),
+                                        currency: currency ?? "",
+                                        merchantAccount: merchantAccount ?? "",
+                                        reference: reference,
+                                        amount: amountAsInt ?? 0,
+                                        returnUrl: returnUrl ?? "",
+                                        storePayment: data.storePaymentMethod,
+                                        shopperReference: shopperReference,
+                                        countryCode: shopperLocale
+                                    ),
+                                    additionalData:additionalData ?? [String: String]()
+                              )
 
         do {
             let jsonData = try JSONEncoder().encode(paymentRequest)
@@ -210,15 +224,16 @@ struct Payment : Encodable {
     let paymentMethod: AnyEncodable
     let lineItems: [LineItem]
     let channel: String = "iOS"
-    let additionalData = ["allow3DS2":"true"]
+    let additionalData = ["allow3DS2" : "true"]
     let amount: Amount
-    let reference: String = UUID().uuidString
+    let reference: String?
     let returnUrl: String
     let storePaymentMethod: Bool
     let shopperReference: String?
     let countryCode: String?
+    let merchantAccount: String?
 
-    init(paymentMethod: AnyEncodable, lineItem: LineItem, currency: String, amount: Int, returnUrl: String, storePayment: Bool, shopperReference: String?, countryCode: String?) {
+    init(paymentMethod: AnyEncodable, lineItem: LineItem, currency: String, merchantAccount: String, reference: String?, amount: Int, returnUrl: String, storePayment: Bool, shopperReference: String?, countryCode: String?) {
         self.paymentMethod = paymentMethod
         self.lineItems = [lineItem]
         self.amount = Amount(currency: currency, value: amount)
@@ -226,6 +241,8 @@ struct Payment : Encodable {
         self.shopperReference = shopperReference
         self.storePaymentMethod = storePayment
         self.countryCode = countryCode
+        self.merchantAccount = merchantAccount
+        self.reference = reference ?? UUID().uuidString
     }
 }
 
