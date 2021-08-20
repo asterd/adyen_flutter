@@ -14,6 +14,7 @@ import com.adyen.checkout.base.model.payments.response.*
 import com.jakewharton.retrofit2.adapter.kotlin.coroutines.CoroutineCallAdapterFactory
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.PolymorphicJsonAdapterFactory
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
@@ -58,6 +59,7 @@ fun getService(headers: HashMap<String, String>, baseUrl: String): CheckoutApiSe
                     .withSubtype(QrCodeAction::class.java, QrCodeAction.ACTION_TYPE)
                     .withSubtype(VoucherAction::class.java, VoucherAction.ACTION_TYPE)
             )
+            .add(KotlinJsonAdapterFactory())
             .build()
     val converter = MoshiConverterFactory.create(moshi)
 

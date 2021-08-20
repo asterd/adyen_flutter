@@ -53,7 +53,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         reference = arguments?["reference"] as? String
         returnUrl = arguments?["returnUrl"] as? String
         shopperReference = arguments?["shopperReference"] as? String
-        shopperLocale = String((arguments?["locale"] as? String)?.split(separator: "_").last ?? "DE")
+        shopperLocale = String((arguments?["locale"] as? String)?.split(separator: "_").last ?? "IT")
         mResult = result
 
         guard let paymentData = paymentMethodsResponse?.data(using: .utf8),
@@ -62,7 +62,7 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         }
 
         let configuration = DropInComponent.PaymentMethodsConfiguration()
-        configuration.card.showsHolderNameField = true
+        configuration.card.showsHolderNameField = false
         configuration.clientKey = clientKey
         dropInComponent = DropInComponent(paymentMethods: paymentMethods, paymentMethodsConfiguration: configuration)
         dropInComponent?.delegate = self
@@ -75,7 +75,6 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
         } else if (environment == "LIVE_EUROPE"){
             dropInComponent?.environment = .liveEurope
         }
-
 
         if var topController = UIApplication.shared.keyWindow?.rootViewController, let dropIn = dropInComponent {
             self.topController = topController
@@ -94,20 +93,22 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
     }
 
     public func didSubmit(_ data: PaymentComponentData, from component: DropInComponent) {
+        NSLog("I'm here")
         guard let baseURL = baseURL, let url = URL(string: baseURL + "payments") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("\(authToken!)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("PHPSTORM", forHTTPHeaderField: "XDEBUG_SESSION_START")
 
         let amountAsInt = Int(amount ?? "0")
         // prepare json data
         let paymentMethod = data.paymentMethod.encodable
         let lineItem = try? JSONDecoder().decode(LineItem.self, from: JSONSerialization.data(withJSONObject: lineItemJson ?? ["":""]) )
-        if lineItem == nil {
-            self.didFail(with: PaymentError(), from: component)
-            return
-        }
+//         if lineItem == nil {
+//             self.didFail(with: PaymentError(), from: component)
+//             return
+//         }
         let paymentRequest = PaymentRequest(payment: Payment(
                                         paymentMethod: paymentMethod,
                                         lineItem: lineItem ?? LineItem(id: "", description: ""),
@@ -135,9 +136,8 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
                     self.didFail(with: PaymentError(), from: component)
                 }
             }.resume()
-
-
         } catch {
+            print()
             didFail(with: PaymentError(), from: component)
         }
 
@@ -224,7 +224,7 @@ struct Payment : Encodable {
     let paymentMethod: AnyEncodable
     let lineItems: [LineItem]
     let channel: String = "iOS"
-    let additionalData = ["allow3DS2" : "true"]
+    let additionalData = ["allow3DS2" : "true", "executeThreeD" : "true"]
     let amount: Amount
     let reference: String?
     let returnUrl: String

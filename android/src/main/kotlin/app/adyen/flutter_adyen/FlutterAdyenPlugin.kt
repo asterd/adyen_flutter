@@ -34,7 +34,9 @@ import okhttp3.RequestBody
 import org.json.JSONObject
 import java.io.IOException
 import java.io.Serializable
-import com.google.gson.reflect.TypeToken;
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.google.gson.reflect.TypeToken
+import java.util.*
 
 class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, PluginRegistry.ActivityResultListener {
     var flutterResult: Result? = null
@@ -70,7 +72,7 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
                 @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
                 val lineItemString = JSONObject(lineItem).toString()
                 val additionalDataString = JSONObject(additionalData).toString()
-                val localeString = call.argument<String>("locale") ?: "de_DE"
+                val localeString = call.argument<String>("locale") ?: "it_IT"
                 val countryCode = localeString.split("_").last()
 
                 var environment = Environment.TEST
@@ -88,7 +90,7 @@ class FlutterAdyenPlugin(private val activity: Activity) : MethodCallHandler, Pl
                     val shopperLocale = LocaleUtil.fromLanguageTag(localeString ?: "")
                     val googlePayConfig = GooglePayConfiguration.Builder(activity, merchantAccount ?: "").build()
                     val cardConfiguration = CardConfiguration.Builder(activity)
-                            .setHolderNameRequire(true)
+                            .setHolderNameRequire(false)
                             .setPublicKey(publicKey ?: "")
                             .setShopperLocale(shopperLocale)
                             .setEnvironment(environment)
@@ -171,12 +173,15 @@ class AdyenDropinService : DropInService() {
         val uuid: UUID = UUID.randomUUID()
         val reference = sharedPref.getString("reference", uuid.toString())
 
-        val moshi = Moshi.Builder().build()
-        val jsonAdapter = moshi.adapter(LineItem::class.java)
-        val lineItem: LineItem? = jsonAdapter.fromJson(lineItemString ?: "")
+        var lineItem : LineItem? = null;
+        // log("lineItem: ${lineItemString}")
+        if (lineItemString?: "{}" != "{}") { // check is not an empty map
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val jsonAdapter = moshi.adapter(LineItem::class.java)
+            lineItem = jsonAdapter.fromJson(lineItemString ?: "")
+        }
 
         val gson = Gson()
-
         val additionalData = gson.fromJson<Map<String, String>>(additionalDataString ?: "")
         val serializedPaymentComponentData = PaymentComponentData.SERIALIZER.deserialize(paymentComponentData)
 
@@ -194,10 +199,10 @@ class AdyenDropinService : DropInService() {
                 countryCode = countryCode ?: "IT",
                 additionalData = additionalData
         )
-        val paymentsRequestJson = serializePaymentsRequest(paymentsRequest)
+        val paymentsRequestJson = dataObjectToJsonString(paymentsRequest)
 
-        val requestBody = RequestBody.create(MediaType.parse("application/json"), paymentsRequestJson.toString())
-        log("payment request body: ${paymentsRequestJson.toString()} ${authorization}")
+        val requestBody = RequestBody.create(MediaType.parse("application/json"), paymentsRequestJson) // .toString())
+        log("payment request body: ${paymentsRequestJson} ${authorization}")
         val headers: HashMap<String, String> = HashMap()
         headers["Authorization"] = authorization ?: ""
         val call = getService(headers, baseUrl ?: "").payments(requestBody)
@@ -255,6 +260,8 @@ class AdyenDropinService : DropInService() {
         val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentData.toString())
         val headers: HashMap<String, String> = HashMap()
         headers["Authorization"] = authorization ?: ""
+        log("payment request details body: ${actionComponentData.toString()} ${authorization}")
+
         val call = getService(headers, baseUrl ?: "").details(requestBody)
         return try {
             val response = call.execute()
@@ -340,7 +347,7 @@ data class Payment(
         val returnUrl: String,
         val channel: String = "Android",
         val lineItems: List<LineItem?>,
-        val additionalData: AdditionalData = AdditionalData(allow3DS2 = "true"),
+        val additionalData: AdditionalData = AdditionalData(allow3DS2 = "true", executeTreeD = "true"),
         val shopperReference: String?
 ): Serializable
 
@@ -353,14 +360,19 @@ data class LineItem(
         val description: String
 ): Serializable
 
-data class AdditionalData(val allow3DS2: String = "true")
+data class AdditionalData(val allow3DS2: String = "true", val executeTreeD: String = "true")
+
+private fun dataObjectToJsonString(paymentsRequest: PaymentsRequest): String {
+    val gson = Gson()
+    return gson.toJson(paymentsRequest)
+}
 
 private fun serializePaymentsRequest(paymentsRequest: PaymentsRequest): JSONObject {
-
     val gson = Gson()
     val jsonString = gson.toJson(paymentsRequest)
+    // print(jsonString)
     val request = JSONObject(jsonString)
-    print(request)
+    // print(request)
     return request
 }
 
