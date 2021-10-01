@@ -109,20 +109,21 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
 //             self.didFail(with: PaymentError(), from: component)
 //             return
 //         }
-        let paymentRequest = PaymentRequest(payment: Payment(
-                                        paymentMethod: paymentMethod,
-                                        lineItem: lineItem ?? LineItem(id: "", description: ""),
-                                        currency: currency ?? "",
-                                        merchantAccount: merchantAccount ?? "",
-                                        reference: reference,
-                                        amount: amountAsInt ?? 0,
-                                        returnUrl: returnUrl ?? "",
-                                        storePayment: data.storePaymentMethod,
-                                        shopperReference: shopperReference,
-                                        countryCode: shopperLocale
-                                    ),
-                                    additionalData:additionalData ?? [String: String]()
-                              )
+        let paymentRequest = PaymentRequest(
+            payment: Payment(
+                paymentMethod: paymentMethod,
+                lineItem: lineItem ?? LineItem(id: "", description: ""),
+                currency: currency ?? "",
+                merchantAccount: merchantAccount ?? "",
+                reference: reference,
+                amount: amountAsInt ?? 0,
+                returnUrl: returnUrl ?? "",
+                storePayment: data.storePaymentMethod,
+                shopperReference: shopperReference,
+                countryCode: shopperLocale
+            ),
+            additionalData:additionalData ?? [String: String]()
+        )
 
         do {
             let jsonData = try JSONEncoder().encode(paymentRequest)
