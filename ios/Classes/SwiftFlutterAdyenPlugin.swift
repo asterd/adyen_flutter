@@ -3,6 +3,7 @@ import UIKit
 import Adyen
 import Adyen3DS2
 import Foundation
+import AdyenNetworking
 
 struct PaymentError: Error {
 
@@ -60,21 +61,22 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
               let paymentMethods = try? JSONDecoder().decode(PaymentMethods.self, from: paymentData) else {
             return
         }
-
-        let configuration = DropInComponent.PaymentMethodsConfiguration()
-        configuration.card.showsHolderNameField = false
-        configuration.clientKey = clientKey
-        dropInComponent = DropInComponent(paymentMethods: paymentMethods, paymentMethodsConfiguration: configuration)
-        dropInComponent?.delegate = self
-        dropInComponent?.environment = .test
-
+        
+        var ctx = Environment.test
         if(environment == "LIVE_US") {
-            dropInComponent?.environment = .liveUnitedStates
+            ctx = Environment.liveUnitedStates
         } else if (environment == "LIVE_AUSTRALIA"){
-            dropInComponent?.environment = .liveAustralia
+            ctx = Environment.liveAustralia
         } else if (environment == "LIVE_EUROPE"){
-            dropInComponent?.environment = .liveEurope
+            ctx = Environment.liveEurope
         }
+        
+        let configuration = DropInComponent.Configuration(
+            apiContext: APIContext(environment: ctx, clientKey: clientKey!)
+        );
+        configuration.card.showsHolderNameField = false
+        dropInComponent = DropInComponent(paymentMethods: paymentMethods, configuration: configuration)
+        dropInComponent?.delegate = self
 
         if var topController = UIApplication.shared.keyWindow?.rootViewController, let dropIn = dropInComponent {
             self.topController = topController
@@ -88,11 +90,16 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
 
 extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
 
+    public func didComplete(from component: DropInComponent) {
+        component.stopLoadingIfNeeded()
+    }
+    
+
     public func didCancel(component: PresentableComponent, from dropInComponent: DropInComponent) {
         self.didFail(with: PaymentCancelled(), from: dropInComponent)
     }
 
-    public func didSubmit(_ data: PaymentComponentData, from component: DropInComponent) {
+    public func didSubmit(_ data: PaymentComponentData, for paymentMethod: PaymentMethod, from component: DropInComponent) {
         NSLog("I'm here")
         guard let baseURL = baseURL, let url = URL(string: baseURL + "payments") else { return }
         var request = URLRequest(url: url)
@@ -151,10 +158,10 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
                 return
             }
             if let action = response.action {
-                component.stopLoading()
+                component.stopLoadingIfNeeded()
                 component.handle(action)
             } else {
-                component.stopLoading()
+                component.stopLoadingIfNeeded()
                 if response.resultCode == .authorised || response.resultCode == .received || response.resultCode == .pending, let result = self.mResult {
                     result(response.resultCode.rawValue)
                     self.topController?.dismiss(animated: false, completion: nil)
