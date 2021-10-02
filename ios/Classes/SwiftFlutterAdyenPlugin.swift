@@ -204,7 +204,6 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
     }
 
     public func didFail(with error: Error, from component: DropInComponent) {
-
         DispatchQueue.main.async {
             if (error is PaymentCancelled) {
                 self.mResult?("PAYMENT_CANCELLED")

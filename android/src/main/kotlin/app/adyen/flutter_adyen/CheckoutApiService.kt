@@ -8,17 +8,15 @@
 
 package app.adyen.flutter_adyen
 
-import com.adyen.checkout.base.model.paymentmethods.InputDetail
-import com.adyen.checkout.base.model.payments.request.*
-import com.adyen.checkout.base.model.payments.response.*
+import com.adyen.checkout.components.model.paymentmethods.InputDetail
+import com.adyen.checkout.components.model.payments.request.*
+import com.adyen.checkout.components.model.payments.response.*
+import com.adyen.checkout.components.model.payments.request.PaymentMethodDetails
 import com.jakewharton.retrofit2.adapter.kotlin.coroutines.CoroutineCallAdapterFactory
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.PolymorphicJsonAdapterFactory
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import okhttp3.RequestBody
-import okhttp3.Response
+import okhttp3.*
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -27,10 +25,10 @@ import retrofit2.http.POST
 
 interface CheckoutApiService {
     @POST("payments")
-    fun payments(@Body paymentsRequest: RequestBody): Call<PaymentsApiResponse>
+    fun payments(@Body paymentsRequest: RequestBody): Call<ResponseBody> //PaymentsApiResponse>
 
     @POST("payments/details")
-    fun details(@Body detailsRequest: RequestBody): Call<PaymentsApiResponse>
+    fun details(@Body detailsRequest: RequestBody): Call<ResponseBody> // PaymentsApiResponse>
 }
 
 class HeaderInterceptor(private val headers: HashMap<String, String>) : Interceptor {
@@ -76,8 +74,8 @@ fun getService(headers: HashMap<String, String>, baseUrl: String): CheckoutApiSe
 }
 
 data class PaymentsApiResponse(
-        val resultCode: String? = null,
-        val paymentData: String? = null,
-        val details: List<InputDetail>? = null,
-        val action: Action? = null
+    val resultCode: String? = null,
+    val paymentData: String? = null,
+    val details: List<InputDetail>? = null,
+    val action: Action? = null
 )
