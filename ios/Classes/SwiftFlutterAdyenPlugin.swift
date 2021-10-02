@@ -71,11 +71,12 @@ public class SwiftFlutterAdyenPlugin: NSObject, FlutterPlugin {
             ctx = Environment.liveEurope
         }
         
-        let configuration = DropInComponent.Configuration(
-            apiContext: APIContext(environment: ctx, clientKey: clientKey!)
-        );
+        let dropInComponentStyle = DropInComponent.Style()
+        
+        let apiContext = APIContext(environment: ctx, clientKey: clientKey!)
+        let configuration = DropInComponent.Configuration(apiContext: apiContext);
         configuration.card.showsHolderNameField = false
-        dropInComponent = DropInComponent(paymentMethods: paymentMethods, configuration: configuration)
+        dropInComponent = DropInComponent(paymentMethods: paymentMethods, configuration: configuration, style: dropInComponentStyle)
         dropInComponent?.delegate = self
 
         if var topController = UIApplication.shared.keyWindow?.rootViewController, let dropIn = dropInComponent {
@@ -93,9 +94,8 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
     public func didComplete(from component: DropInComponent) {
         component.stopLoadingIfNeeded()
     }
-    
 
-    public func didCancel(component: PresentableComponent, from dropInComponent: DropInComponent) {
+    public func didCancel(component: PaymentComponent, from dropInComponent: DropInComponent) {
         self.didFail(with: PaymentCancelled(), from: dropInComponent)
     }
 
@@ -119,7 +119,7 @@ extension SwiftFlutterAdyenPlugin: DropInComponentDelegate {
         let paymentRequest = PaymentRequest(
             payment: Payment(
                 paymentMethod: paymentMethod,
-                lineItem: lineItem ?? LineItem(id: "", description: ""),
+                lineItem: LineItem(id: "", description: ""), // lineItem ?? LineItem(id: "", description: ""),
                 currency: currency ?? "",
                 merchantAccount: merchantAccount ?? "",
                 reference: reference,
@@ -295,6 +295,7 @@ internal extension PaymentsResponse {
         case redirectShopper = "RedirectShopper"
         case identifyShopper = "IdentifyShopper"
         case challengeShopper = "ChallengeShopper"
+        case presentToShopper = "PresentToShopper"
     }
 
 }
