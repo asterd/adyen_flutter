@@ -37,33 +37,80 @@ import com.google.gson.reflect.TypeToken
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.BinaryMessenger
 import java.util.*
 
 class FlutterAdyenPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
-    private var flutterResult: Result? = null
-    private lateinit var channel: MethodChannel
+    private var methodChannel: MethodChannel? = null
     private var activity: Activity? = null
+    private var activityBinding: ActivityPluginBinding? = null
+    var flutterResult: Result? = null
 
-    override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_adyen")
-        channel.setMethodCallHandler(this)
+    companion object {
+        const val CHANNEL_NAME = "flutter_adyen"
     }
-    
-    override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
-        channel.setMethodCallHandler(null)
+
+    //region lifecycle
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (activity == null) return false
+
+        val sharedPref = activity!!.getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
+        val storedResultCode = sharedPref.getString("AdyenResultCode", "PAYMENT_CANCELLED")
+        flutterResult?.success(storedResultCode)
+        flutterResult = null
+        return true
+    }
+
+    override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        onAttachedToEngine(binding.binaryMessenger)
+    }
+
+    private fun onAttachedToEngine(messenger: BinaryMessenger) {
+        this.methodChannel = MethodChannel(messenger, CHANNEL_NAME)
+        this.methodChannel?.setMethodCallHandler(this)
+    }
+
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        unbindActivityBinding()
+        this.methodChannel = null
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        this.activity = binding.activity
-        binding.addActivityResultListener(this)
+        bindActivityBinding(binding)
     }
 
-    override fun onDetachedFromActivityForConfigChanges() {}
-    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
+    override fun onDetachedFromActivityForConfigChanges() {
+        unbindActivityBinding()
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        bindActivityBinding(binding)
+    }
 
     override fun onDetachedFromActivity() {
-        this.activity = null
+        unbindActivityBinding()
     }
+
+    private fun bindActivityBinding(binding: ActivityPluginBinding) {
+        this.activity = binding.activity
+        this.activityBinding = binding
+        addActivityResultListener(binding)
+    }
+
+    private fun unbindActivityBinding() {
+        activityBinding?.removeActivityResultListener(this)
+        this.activity = null
+        this.activityBinding = null
+    }
+
+    private fun addActivityResultListener(activityBinding: ActivityPluginBinding) {
+        activityBinding.addActivityResultListener(this)
+    }
+
+    private fun addActivityResultListener(registrar: PluginRegistry.Registrar) {
+        registrar.addActivityResultListener(this)
+    }
+    //endregion
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
@@ -106,12 +153,15 @@ class FlutterAdyenPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Plug
                     try {
                         val jsonObject = JSONObject(paymentMethods ?: "")
                         val paymentMethodsApiResponse = PaymentMethodsApiResponse.SERIALIZER.deserialize(jsonObject)
-                        val shopperLocale = LocaleUtil.fromLanguageTag(localeString)
+
+                        val shopperLocale = localeTranslate(localeString);
                         val googlePayConfig = GooglePayConfiguration.Builder(a, clientKey ?: "")
+                                .setShopperLocale(shopperLocale)
                                 .setMerchantAccount(merchantAccount ?: "")
                                 .setEnvironment(environment)
                                 .build()
                         val bcmcConfig = BcmcConfiguration.Builder(a, clientKey ?: "")
+                                .setShopperLocale(shopperLocale)
                                 .setEnvironment(environment)
                                 .build()
                         val cardConfiguration = CardConfiguration.Builder(a, clientKey ?: "")
@@ -124,6 +174,7 @@ class FlutterAdyenPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Plug
                         resultIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
                         resultIntent.putExtra("baseUrl", baseUrl)
                         resultIntent.putExtra("Authorization", authToken)
+
 
                         val sharedPref = a.getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
                         with(sharedPref.edit()) {
@@ -161,14 +212,29 @@ class FlutterAdyenPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Plug
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        this.activity?.let { a ->
-            val sharedPref = a.getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
-            val storedResultCode = sharedPref.getString("AdyenResultCode", "PAYMENT_CANCELLED")
-            flutterResult?.success(storedResultCode)
-            flutterResult = null
+    /// Translate a locale string to a Locale object
+    fun localeTranslate(str: String): Locale {
+        var split = "-";
+        if (str.contains("-")) {
+            split = "-";
         }
-        return true
+
+        if (str.contains(split)) {
+            val args: List<String> = str.split(split)
+            when {
+                args.size > 2 -> {
+                    return Locale(args[0], args[1], args[3])
+                }
+                args.size > 1 -> {
+                    return Locale(args[0], args[1])
+                }
+                args.size == 1 -> {
+                    return Locale(args[0])
+                }
+            }
+        }
+
+        return Locale.ITALIAN;
     }
 }
 
@@ -191,7 +257,7 @@ class AdyenDropinService : DropInService() {
         val authorization = sharedPref.getString("Authorization", "UNDEFINED_STR")
         val amount = sharedPref.getString("amount", "UNDEFINED_STR")
         val currency = sharedPref.getString("currency", "UNDEFINED_STR")
-        val countryCode = sharedPref.getString("countryCode", "DE")
+        val countryCode = sharedPref.getString("countryCode", "IT")
         val lineItemString = sharedPref.getString("lineItem", "UNDEFINED_STR")
         val additionalDataString = sharedPref.getString("additionalData", "UNDEFINED_STR")
         val merchantAccount = sharedPref.getString("merchantAccount", "UNDEFINED_STR")
@@ -390,15 +456,6 @@ private fun dataObjectToJsonString(paymentsRequest: PaymentsRequest): String {
     val gson = Gson()
     return gson.toJson(paymentsRequest)
 }
-
-//private fun serializePaymentsRequest(paymentsRequest: PaymentsRequest): JSONObject {
-//    val gson = Gson()
-//    val jsonString = gson.toJson(paymentsRequest)
-//    // print(jsonString)
-//    val request = JSONObject(jsonString)
-//    // print(request)
-//    return request
-//}
 
 private fun log(toLog: String) {
     Log.d("ADYEN", "ADYEN (native) : $toLog")
