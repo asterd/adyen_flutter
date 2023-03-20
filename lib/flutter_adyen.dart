@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:adyen_dropin/enums/adyen_error.dart';
+import 'package:adyen_dropin/enums/adyen_response.dart';
+import 'package:adyen_dropin/exceptions/adyen_exception.dart';
 import 'package:flutter/services.dart';
 
 class FlutterAdyen {
   static const MethodChannel _channel = const MethodChannel('flutter_adyen');
 
-  static Future<String> openDropIn({
+  static Future<AdyenResponse> openDropIn({
       paymentMethods,
       required String baseUrl,
       String authToken = '',
@@ -39,7 +42,18 @@ class FlutterAdyen {
     args.putIfAbsent('merchantAccount', () => merchantAccount);
     args.putIfAbsent('reference', () => reference);
 
-    final String response = await _channel.invokeMethod('openDropIn', args);
-    return response;
+    // final String response = await _channel.invokeMethod('openDropIn', args);
+    // return response;
+    final response =  await _channel.invokeMethod<String>('openDropIn', args);
+    switch(response) {
+      case 'PAYMENT_ERROR':
+        throw AdyenException(AdyenError.PAYMENT_ERROR, response);
+      case 'PAYMENT_CANCELLED':
+        throw AdyenException(AdyenError.PAYMENT_CANCELLED, response);
+    }
+
+    return AdyenResponse.values.firstWhere((element) =>
+        element.name.toLowerCase() == response?.toLowerCase(),
+        orElse: () => throw AdyenException(AdyenError.PAYMENT_ERROR, response));
   }
 }

@@ -1,8 +1,9 @@
 import 'dart:convert';
 
+import 'package:adyen_dropin/enums/adyen_response.dart';
+import 'package:adyen_dropin/exceptions/adyen_exception.dart';
 import 'package:adyen_dropin/flutter_adyen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'mock_data.dart';
 
@@ -16,7 +17,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String _payment_result = 'Unknown';
 
-  late String dropInResponse;
+  AdyenResponse? dropInResponse;
 
   @override
   Widget build(BuildContext context) {
@@ -27,28 +28,34 @@ class _MyAppState extends State<MyApp> {
           onPressed: () async {
             try {
               dropInResponse = await FlutterAdyen.openDropIn(
-                  paymentMethods: jsonEncode(examplePaymentMethods),
+                  paymentMethods: jsonEncode(examplePaymentMethods),  // the result of your payment methods call
                   baseUrl: 'https://yourdomain.com',
-                  clientKey: 'clientkey',
+                  amount: '100', // amount in cents
+                  returnUrl: 'http://asd.de', //required for iOS
                   publicKey: 'publickey',
-                  locale: 'de_DE',
-                  shopperReference: 'asdasda',
-                  returnUrl: 'http://asd.de',
-                  amount: '1230',
                   merchantAccount: '',
-                  lineItem: {'id': '1', 'description': 'adyen test'},
-                  currency: 'EUR',
-                  additionalData: {});
-            } on PlatformException catch (e) {
-              if (e.code == 'PAYMENT_CANCELLED')
-                dropInResponse = 'Payment Cancelled';
-              else
-                dropInResponse = 'Payment Error';
+                  clientKey: 'clientkey',
+                  additionalData: {},
+                  environment: 'TEST',
+                  shopperReference: '');
+              setState(() {
+                _payment_result = dropInResponse?.name ?? 'Unknown';
+              });
+            } on AdyenException catch(e) {
+              setState(() {
+                _payment_result = e.error.name;
+              });
             }
+            // } on PlatformException catch (e) {
+            //   if (e.code == 'PAYMENT_CANCELLED')
+            //     dropInResponse = 'Payment Cancelled';
+            //   else
+            //     dropInResponse = 'Payment Error';
+            // }
 
-            setState(() {
-              _payment_result = dropInResponse;
-            });
+            // setState(() {
+            //   _payment_result = dropInResponse;
+            // });
           },
         ),
         appBar: AppBar(
