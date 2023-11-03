@@ -28,6 +28,7 @@ import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry
 import java.util.UUID
 import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody
 import org.json.JSONObject
 import java.io.IOException
@@ -293,12 +294,13 @@ class AdyenDropinService : DropInService() {
         )
         val paymentsRequestJson = dataObjectToJsonString(paymentsRequest)
 
-        val requestBody = RequestBody.create(MediaType.parse("application/json"), paymentsRequestJson) // .toString())
+        // val requestBody = RequestBody.create(MediaType.parse("application/json"), paymentsRequestJson) // .toString())
+        val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), paymentsRequestJson)
         log("payment request body: $paymentsRequestJson $authorization")
         val headers: HashMap<String, String> = HashMap()
         headers["Authorization"] = authorization ?: ""
         val call = getService(headers, baseUrl ?: "").payments(requestBody)
-        call.request().headers()
+        call.request().headers
         return try {
             val exec = call.execute()
             val response = exec.body()
@@ -346,7 +348,8 @@ class AdyenDropinService : DropInService() {
         val sharedPref = getSharedPreferences("ADYEN", Context.MODE_PRIVATE)
         val baseUrl = sharedPref.getString("baseUrl", "UNDEFINED_STR")
         val authorization = sharedPref.getString("Authorization", "UNDEFINED_STR")
-        val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentJson.toString())
+        // val requestBody = RequestBody.create(MediaType.parse("application/json"), actionComponentJson.toString())
+        val requestBody = RequestBody.create("application/json".toMediaTypeOrNull(), actionComponentJson.toString())
         val headers: HashMap<String, String> = HashMap()
         headers["Authorization"] = authorization ?: ""
         log("payment request details body: $actionComponentJson $authorization")

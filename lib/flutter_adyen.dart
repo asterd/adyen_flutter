@@ -13,7 +13,7 @@ class FlutterAdyen {
       required String baseUrl,
       String authToken = '',
       required String clientKey,
-      required String publicKey,
+      String publicKey = '',
       Map<String, String> lineItem = const {},
       String locale = 'it_IT',
       required String amount,
